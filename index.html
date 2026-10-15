@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ABANDONED — Hospital Horror</title>
+<style>
+:root{--red:#b20d22;--pale:#d7d9df;--panel:rgba(4,7,12,.88)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#030507;color:#eee;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:none}
+canvas{display:block;width:100%;height:100%;image-rendering:auto}
+#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 8px #000}
+#top{position:absolute;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;align-items:flex-start;font-size:12px;letter-spacing:1.5px}
+.pill{background:#05070bc9;border:1px solid #ffffff26;padding:8px 10px;border-radius:5px}
+#objective{position:absolute;left:50%;top:62px;transform:translateX(-50%);font-size:12px;color:#d6d9df;background:#0009;padding:7px 11px;border-radius:4px;white-space:nowrap}
+#crosshair{position:absolute;left:50%;top:50%;width:6px;height:6px;border:1px solid #fff9;border-radius:50%;transform:translate(-50%,-50%)}
+#prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);background:#000c;padding:9px 12px;font-size:12px;display:none;text-align:center}
+#message{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-size:clamp(18px,4vw,32px);font-weight:800;letter-spacing:3px;text-align:center;color:#f2e8e8;opacity:0;transition:opacity .25s;max-width:90%;text-shadow:0 0 18px #a00019}
+#fearWrap{position:absolute;bottom:18px;left:14px;width:140px;font-size:10px;letter-spacing:1.5px}
+#fearBar{height:5px;background:#303238;margin-top:6px;border-radius:9px;overflow:hidden}
+#fearFill{height:100%;width:12%;background:#a50d25;transition:width .3s}
+#battery{position:absolute;right:14px;bottom:18px;text-align:right;font-size:10px;letter-spacing:1px}
+#batteryBar{width:105px;height:5px;background:#303238;margin-top:6px;margin-left:auto;overflow:hidden}
+#batteryFill{height:100%;width:100%;background:#d6d6c5}
+#menu,#ending{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(23,27,31,.64),rgba(0,0,0,.96));z-index:5;padding:20px}
+.panel{width:min(520px,100%);border:1px solid #b9c0ca38;background:linear-gradient(150deg,#10141bfa,#030406fa);padding:clamp(22px,5vw,42px);box-shadow:0 20px 100px #000;text-align:center}
+.kicker{color:#b51c31;letter-spacing:5px;font-size:11px;font-weight:800}
+h1{font-size:clamp(35px,10vw,65px);line-height:.9;letter-spacing:3px;margin:18px 0 12px}
+.sub{color:#aeb5bf;font-size:13px;line-height:1.7}
+button{border:1px solid #a91b30;background:#8f0c20;color:#fff;padding:14px 18px;font-size:12px;font-weight:800;letter-spacing:2px;cursor:pointer;margin-top:18px;width:100%;border-radius:2px}
+button.secondary{background:#10141b;border-color:#ffffff35}
+.small{font-size:11px;color:#838b98;line-height:1.6;margin-top:16px}
+#touch{position:fixed;inset:0;z-index:3;display:none;pointer-events:none}
+#stickBase{position:absolute;left:22px;bottom:35px;width:112px;height:112px;border-radius:50%;border:1px solid #ffffff55;background:#10151b88;pointer-events:auto}
+#stickKnob{position:absolute;left:34px;top:34px;width:44px;height:44px;border-radius:50%;background:#d9dce344;border:1px solid #fff8}
+.touchBtn{position:absolute;right:20px;bottom:36px;width:64px;height:64px;border-radius:50%;background:#0b0d11b8;border:1px solid #ffffff55;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:1px;pointer-events:auto;user-select:none}
+#runBtn{right:94px;bottom:52px;width:54px;height:54px}
+#lookHint{position:absolute;right:14px;top:45%;font-size:10px;color:#ffffff88;writing-mode:vertical-rl}
+#soundToggle{position:fixed;z-index:6;right:12px;top:62px;width:auto;margin:0;padding:9px 11px;font-size:10px;letter-spacing:1px;background:#080a0dcc;border:1px solid #ffffff40;pointer-events:auto}
+#soundState{color:#aab2bc}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:4}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse at center,transparent 25%,rgba(0,0,0,.55) 100%)}
+#static{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:repeating-linear-gradient(0deg,#fff0 0 2px,#fff08 3px,#0000 4px)}
+@media(min-width:800px){#touch{display:none!important}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas><button id="soundToggle" aria-label="Toggle sound">SOUND: <span id="soundState">ON</span></button><div id="vignette"></div><div id="static"></div><div id="flash"></div>
+<div id="hud">
+ <div id="top"><div class="pill">ABANDONED <span style="color:#a81a2f">/</span> WARD 09</div><div class="pill" id="status">SIGNAL LOST</div></div>
+ <div id="objective">FIND THE EXIT KEY — WARD 09</div><div id="crosshair"></div>
+ <div id="prompt"></div><div id="message"></div>
+ <div id="fearWrap">FEAR LEVEL <span id="fearNum">12%</span><div id="fearBar"><div id="fearFill"></div></div></div>
+ <div id="battery">FLASHLIGHT <span id="batNum">100%</span><div id="batteryBar"><div id="batteryFill"></div></div></div>
+</div>
+<div id="touch"><div id="stickBase"><div id="stickKnob"></div></div><div class="touchBtn" id="runBtn">RUN</div><div class="touchBtn" id="interactBtn">USE</div><div id="lookHint">DRAG TO LOOK</div></div>
+<div id="menu"><div class="panel"><div class="kicker">A FIRST-PERSON SURVIVAL HORROR</div><h1>ABANDONED</h1><div style="letter-spacing:4px;color:#b9bdc6;font-size:12px">WARD 09</div><p class="sub">You woke up in a hospital that was sealed twenty years ago.<br>Something is walking outside your room.<br><strong>Do not let it see you.</strong></p><button id="startBtn">ENTER THE HOSPITAL</button><button id="howBtn" class="secondary">HOW TO SURVIVE</button><div class="small">Headphones recommended. Contains sudden scares and chase sequences.<br>Mobile: joystick to move, drag the right side to look, USE to interact.</div></div></div>
+<div id="ending" style="display:none"><div class="panel"><div class="kicker" id="endKicker">WARD 09</div><h1 id="endTitle">YOU ESCAPED</h1><p class="sub" id="endText"></p><button id="againBtn">PLAY AGAIN</button></div></div>
+<script>
+(()=> {
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=Math.min(devicePixelRatio||1,1.6);
+function resize(){W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)} addEventListener('resize',resize);resize();
+const $=id=>document.getElementById(id);
+let state='menu',player={x:1.5,y:1.5,a:0},fear=12,battery=100,ghost={x:10.5,y:7.5,active:false,seen:false},keyFound=false,genFound=false,doorOpen=false,run=false,move={x:0,y:0},look=0,last=0,elapsed=0,scareCooldown=0,hidden=false,gameOver=false;
+// Procedural horror audio: generated in-browser, so no external audio files are needed.
+let audioCtx=null,masterGain=null,audioOn=true,ambienceNodes=[],ambientTimer=null,stepTimer=0,heartbeatTimer=0;
+function initAudio(){if(!audioOn)return;try{if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();masterGain=audioCtx.createGain();masterGain.gain.value=.58;masterGain.connect(audioCtx.destination)}if(audioCtx.state==='suspended')audioCtx.resume();masterGain.gain.setTargetAtTime(.58,audioCtx.currentTime,.05);startAmbience()}catch(e){console.warn('Audio unavailable',e)}}
+function tone(freq,duration,type='sine',gain=.08,slide=0){if(!audioOn||!audioCtx)return;try{const now=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(Math.max(20,freq),now);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,freq+slide),now+duration);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),now+.025);g.gain.exponentialRampToValueAtTime(.0001,now+duration);o.connect(g);g.connect(masterGain);o.start(now);o.stop(now+duration+.04)}catch(e){}}
+function noiseBurst(duration=.3,gain=.08,filterFreq=700){if(!audioOn||!audioCtx)return;try{const n=Math.max(1,Math.floor(audioCtx.sampleRate*duration)),buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),data=buf.getChannelData(0);for(let i=0;i<n;i++)data[i]=Math.random()*2-1;const src=audioCtx.createBufferSource(),f=audioCtx.createBiquadFilter(),g=audioCtx.createGain(),now=audioCtx.currentTime;src.buffer=buf;f.type='lowpass';f.frequency.value=filterFreq;g.gain.setValueAtTime(gain,now);g.gain.exponentialRampToValueAtTime(.0001,now+duration);src.connect(f);f.connect(g);g.connect(masterGain);src.start();src.stop(now+duration)}catch(e){}}
+function startAmbience(){if(!audioOn||!audioCtx||ambientTimer)return;const o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type='triangle';o.frequency.value=47;f.type='lowpass';f.frequency.value=115;g.gain.value=.035;o.connect(f);f.connect(g);g.connect(masterGain);o.start();ambienceNodes=[o,g,f];const creak=()=>{if(!audioOn||!audioCtx){ambientTimer=null;return}if(state==='play'&&Math.random()<.8){tone(160+Math.random()*170,1.1,'sawtooth',.018,-70);if(Math.random()<.45)noiseBurst(.8,.025,400)}ambientTimer=setTimeout(creak,5000+Math.random()*7000)};ambientTimer=setTimeout(creak,2200)}
+function stopAmbience(){if(ambientTimer){clearTimeout(ambientTimer);ambientTimer=null}for(const n of ambienceNodes){try{if(n.stop)n.stop();else n.disconnect()}catch(e){}}ambienceNodes=[]}
+function soundEffect(kind){if(!audioOn||!audioCtx)return;if(kind==='start'){tone(75,1.2,'sine',.1,-35);noiseBurst(.65,.05,260)}else if(kind==='step'){tone(62+Math.random()*22,.09,'triangle',run?.08:.045,-18);noiseBurst(.07,run?.035:.018,450)}else if(kind==='scare'){tone(95,.75,'sawtooth',.22,-70);tone(740,.32,'square',.09,-520);noiseBurst(.65,.22,1800)}else if(kind==='pickup'){tone(520,.12,'sine',.06,170);tone(760,.18,'sine',.04,90)}else if(kind==='locked'){tone(130,.18,'square',.06,-35)}else if(kind==='power'){tone(55,.55,'sawtooth',.08,120);tone(330,.4,'sine',.05,160)}else if(kind==='heartbeat'){tone(58,.11,'sine',.11,-15);setTimeout(()=>tone(48,.1,'sine',.085,-12),130)}else if(kind==='escape'){tone(440,.5,'sine',.08,220);tone(660,.7,'sine',.05,200)}}
+
+const map=[
+"################",
+"#..............#",
+"#..##....##....#",
+"#..#.....#.....#",
+"#..#...........#",
+"#..####.#####..#",
+"#......#.......#",
+"###.##.#.####..#",
+"#......#.......#",
+"#.####...####..#",
+"#....#.........#",
+"#....#####.###.#",
+"#..............#",
+"################"
+];
+const MW=map[0].length,MH=map.length;
+const objects=[
+{x:3.5,y:2.5,type:'note',name:'PATIENT FILE',got:false},
+{x:12.5,y:4.5,type:'fuse',name:'FUSE BOX',got:false},
+{x:8.5,y:10.5,type:'key',name:'EXIT KEY',got:false},
+{x:13.5,y:11.5,type:'exit',name:'EXIT DOOR',got:false}
+];
+function wall(x,y){let ix=Math.floor(x),iy=Math.floor(y);return ix<0||iy<0||ix>=MW||iy>=MH||map[iy][ix]==='#'}
+function cast(a){let dx=Math.cos(a),dy=Math.sin(a),dist=0;while(dist<22){dist+=.035;let x=player.x+dx*dist,y=player.y+dy*dist;if(wall(x,y))return {dist,x,y,side:Math.abs((x%1)-.5)>Math.abs((y%1)-.5)?0:1}}return {dist:22,x:player.x+dx*22,y:player.y+dy*22,side:0}}
+function norm(a){while(a>Math.PI)a-=Math.PI*2;while(a< -Math.PI)a+=Math.PI*2;return a}
+function visible(x,y){let dx=x-player.x,dy=y-player.y,d=Math.hypot(dx,dy),ang=Math.abs(norm(Math.atan2(dy,dx)-player.a));return d<10&&ang<.75&&cast(player.a+norm(Math.atan2(dy,dx)-player.a)).dist>d-.4}
+function showMessage(t,ms=1700){$('message').textContent=t;$('message').style.opacity=1;clearTimeout(showMessage.t);showMessage.t=setTimeout(()=>$('message').style.opacity=0,ms)}
+function scare(){if(scareCooldown>0)return;scareCooldown=5;fear=Math.min(100,fear+25);soundEffect('scare');$('flash').style.opacity=.8;setTimeout(()=>$('flash').style.opacity=0,70);$('static').style.opacity=.4;setTimeout(()=>$('static').style.opacity=0,450);if(navigator.vibrate)navigator.vibrate([100,50,180]);showMessage('DON’T LOOK BACK',1200)}
+function interact(){
+ if(state!=='play')return;
+ let nearest=null,nd=1.5;
+ for(const o of objects){let d=Math.hypot(o.x-player.x,o.y-player.y);if(d<nd&&!o.got){nearest=o;nd=d}}
+ if(!nearest){showMessage('NOTHING WITHIN REACH',900);return}
+ if(nearest.type==='note'){nearest.got=true;genFound=true;soundEffect('pickup');showMessage('PATIENT FILE FOUND');$('objective').textContent='RESTORE POWER — FIND THE FUSE BOX'}
+ if(nearest.type==='fuse'){nearest.got=true;soundEffect('power');showMessage('POWER RESTORED');battery=Math.min(100,battery+20);$('objective').textContent='FIND THE EXIT KEY — LOWER WARD'}
+ if(nearest.type==='key'){if(!genFound){soundEffect('locked');showMessage('THE LOCK IS MAGNETIC — RESTORE POWER FIRST');return}nearest.got=true;keyFound=true;soundEffect('pickup');showMessage('EXIT KEY ACQUIRED');$('objective').textContent='REACH THE EXIT DOOR'}
+ if(nearest.type==='exit'){if(!keyFound){soundEffect('locked');showMessage('LOCKED — FIND THE EXIT KEY');return}soundEffect('escape');finish(true)}
+}
+function finish(win){state='end';$('ending').style.display='flex';$('endKicker').textContent=win?'SURVIVOR — WARD 09':'PATIENT — WARD 09';$('endTitle').textContent=win?'YOU ESCAPED':'YOU WERE FOUND';$('endText').textContent=win?'You escaped the sealed hospital. But the footsteps have followed you outside…':'The hospital has claimed another patient. The ward is quiet again.'}
+function reset(){initAudio();soundEffect('start');state='play';player={x:1.5,y:1.5,a:0};fear=12;battery=100;ghost={x:10.5,y:7.5,active:false,seen:false};keyFound=false;genFound=false;doorOpen=false;elapsed=0;scareCooldown=0;objects.forEach(o=>o.got=false);$('menu').style.display='none';$('ending').style.display='none';$('objective').textContent='FIND THE PATIENT FILE — WARD 09';$('touch').style.display='block';showMessage('FIND A WAY OUT',1500);last=performance.now();requestAnimationFrame(loop)}
+function render(){
+ ctx.fillStyle='#080b10';ctx.fillRect(0,0,W,H);
+ let horizon=H*.5;
+ let grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,'#05070b');grad.addColorStop(.48,'#20242a');grad.addColorStop(.5,'#15191d');grad.addColorStop(1,'#090b0d');ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+ const fov=Math.PI/2.9,cols=Math.min(Math.floor(W/2),700),cw=W/cols;
+ for(let i=0;i<cols;i++){
+  let ray=player.a-fov/2+(i/cols)*fov,hit=cast(ray),dist=hit.dist*Math.cos(ray-player.a),height=Math.min(H*1.8,H/(dist+.001)*.86),top=horizon-height/2;
+  let shade=Math.max(8,115-dist*11)*(hit.side?.78:1),r=shade*.78,g=shade*.84,b=shade*.9;
+  ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;ctx.fillRect(i*cw,top,cw+1,height);
+  if(dist<7){ctx.fillStyle=`rgba(0,0,0,${Math.min(.5,.12+dist*.035)})`;ctx.fillRect(i*cw,top,cw+1,height)}
+  if((Math.floor(hit.x*3)+Math.floor(hit.y*3))%7===0&&dist<8){ctx.fillStyle='rgba(130,20,30,.13)';ctx.fillRect(i*cw,top+height*.65,cw+1,Math.max(1,height*.02))}
+  ctx.fillStyle=`rgba(0,0,0,${Math.min(.85,dist/15)})`;ctx.fillRect(i*cw,top,cw+1,Math.max(0,top));ctx.fillRect(i*cw,top+height,cw+1,H-(top+height));
+ }
+ // floor tiles
+ for(let j=0;j<10;j++){let y=horizon+Math.pow(j/10,1.7)*H*.5;ctx.strokeStyle=`rgba(130,140,150,${.05+j*.009})`;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+ // objects as projected silhouettes
+ const all=objects.filter(o=>!o.got||o.type==='exit').map(o=>({...o,d:Math.hypot(o.x-player.x,o.y-player.y),a:norm(Math.atan2(o.y-player.y,o.x-player.x)-player.a)})).filter(o=>Math.abs(o.a)<fov*.65&&o.d<9&&cast(player.a+o.a).dist>o.d-.35).sort((a,b)=>b.d-a.d);
+ for(const o of all){
+  let sx=W/2+(o.a/fov)*W,sz=Math.min(H*.8,H/(o.d+.2)*.22),sy=horizon+sz*.35;
+  ctx.save();ctx.translate(sx,sy);
+  if(o.type==='exit'){ctx.fillStyle='#171b20';ctx.fillRect(-sz*.4,-sz*1.6,sz*.8,sz*1.8);ctx.strokeStyle=keyFound?'#c1b87c':'#541522';ctx.lineWidth=3;ctx.strokeRect(-sz*.4,-sz*1.6,sz*.8,sz*1.8);ctx.fillStyle='#aaa';ctx.fillRect(sz*.25,-sz*.7,sz*.05,sz*.05)}
+  else if(o.type==='key'){ctx.strokeStyle='#c8b46d';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-sz*.3,sz*.16,0,Math.PI*2);ctx.moveTo(0,-sz*.14);ctx.lineTo(0,sz*.28);ctx.lineTo(sz*.14,sz*.28);ctx.stroke()}
+  else if(o.type==='fuse'){ctx.fillStyle='#60686a';ctx.fillRect(-sz*.25,-sz*.7,sz*.5,sz*.75);ctx.fillStyle='#d7c99b';ctx.fillRect(-sz*.1,-sz*.52,sz*.2,sz*.18)}
+  else {ctx.fillStyle='#b9bfc2';ctx.fillRect(-sz*.24,-sz*.48,sz*.48,sz*.45);ctx.fillStyle='#8a101e';ctx.fillRect(-sz*.2,-sz*.1,sz*.4,sz*.08)}
+  ctx.restore();
+ }
+ if(ghost.active){
+  const d=Math.hypot(ghost.x-player.x,ghost.y-player.y),a=norm(Math.atan2(ghost.y-player.y,ghost.x-player.x)-player.a);
+  if(Math.abs(a)<fov*.8&&d<12){
+   let sx=W/2+(a/fov)*W,sz=Math.min(H*.95,H/(d+.1)*.65),sy=horizon+sz*.12;
+   ctx.save();ctx.translate(sx,sy);ctx.globalAlpha=Math.min(.95,1-d/22);
+   ctx.shadowColor='#d5dbe6';ctx.shadowBlur=18;
+   ctx.fillStyle='#c4c7c9';ctx.beginPath();ctx.ellipse(0,-sz*.35,sz*.17,sz*.25,0,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='#141619';ctx.fillRect(-sz*.1,-sz*.4,sz*.06,sz*.06);ctx.fillRect(sz*.04,-sz*.4,sz*.06,sz*.06);
+   ctx.fillStyle='#7c858a';ctx.beginPath();ctx.moveTo(-sz*.16,-sz*.15);ctx.lineTo(-sz*.28,sz*.65);ctx.lineTo(sz*.26,sz*.65);ctx.lineTo(sz*.15,-sz*.15);ctx.closePath();ctx.fill();ctx.restore();
+   if(d<2.1){scare();if(d<.8)finish(false)}
+  }
+ }
+ // flashlight cone vignette
+ let vign=ctx.createRadialGradient(W/2,H*.52,20,W/2,H*.52,Math.max(W,H)*.7);vign.addColorStop(0,'rgba(0,0,0,0)');vign.addColorStop(.5,'rgba(0,0,0,.12)');vign.addColorStop(1,'rgba(0,0,0,.72)');ctx.fillStyle=vign;ctx.fillRect(0,0,W,H);
+ if(battery<20&&Math.random()<.08){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H)}
+}
+function update(dt){
+ if(state!=='play')return;
+ elapsed+=dt;if(scareCooldown>0)scareCooldown-=dt;
+ const moving=Math.abs(move.x)+Math.abs(move.y)>.12;if(moving){stepTimer-=dt;if(stepTimer<=0){soundEffect('step');stepTimer=run?.29:.48}}else stepTimer=0;
+ if(ghost.active&&Math.hypot(ghost.x-player.x,ghost.y-player.y)<5){heartbeatTimer-=dt;if(heartbeatTimer<=0){soundEffect('heartbeat');heartbeatTimer=Math.max(.42,1.25-Math.max(0,5-Math.hypot(ghost.x-player.x,ghost.y-player.y))*.18)}}else heartbeatTimer=0;
+ battery=Math.max(0,battery-dt*.17);fear=Math.min(100,fear+dt*.12);
+ if(!ghost.active&&elapsed>18){ghost.active=true;showMessage('SOMETHING WOKE UP',1800);$('status').textContent='MOVEMENT DETECTED'}
+ if(ghost.active){
+  let d=Math.hypot(player.x-ghost.x,player.y-ghost.y);
+  let targetD=run?1.7:3.5;
+  if(d>targetD){let a=Math.atan2(player.y-ghost.y,player.x-ghost.x),speed=.36+(fear/100)*.25;let nx=ghost.x+Math.cos(a)*speed*dt,ny=ghost.y+Math.sin(a)*speed*dt;if(!wall(nx,ghost.y))ghost.x=nx;if(!wall(ghost.x,ny))ghost.y=ny}
+  if(d<5)fear=Math.min(100,fear+dt*4);
+  if(d<3.4&&scareCooldown<=0)scare();
+  if(d<.72)finish(false);
+ }
+ let speed=(run?2.9:1.7)*dt,dx=(Math.cos(player.a)*move.y+Math.cos(player.a+Math.PI/2)*move.x)*speed,dy=(Math.sin(player.a)*move.y+Math.sin(player.a+Math.PI/2)*move.x)*speed;
+ if(!hidden){if(!wall(player.x+dx,player.y))player.x+=dx;if(!wall(player.x,player.y+dy))player.y+=dy}
+ if(run&&Math.abs(move.x)+Math.abs(move.y)>.1)fear=Math.min(100,fear+dt*.8);
+ let nearest=null,nd=1.55;for(const o of objects){let d=Math.hypot(o.x-player.x,o.y-player.y);if(d<nd&&!o.got){nearest=o;nd=d}}
+ if(nearest){$('prompt').style.display='block';$('prompt').textContent='TAP USE — '+nearest.name}else{$('prompt').style.display='none'}
+ $('fearNum').textContent=Math.round(fear)+'%';$('fearFill').style.width=fear+'%';$('batNum').textContent=Math.round(battery)+'%';$('batteryFill').style.width=battery+'%';
+}
+function loop(now){if(state!=='play')return;let dt=Math.min(.05,(now-last)/1000||0);last=now;update(dt);render();requestAnimationFrame(loop)}
+$('startBtn').onclick=()=>reset();
+$('soundToggle').onclick=()=>{audioOn=!audioOn;$('soundState').textContent=audioOn?'ON':'OFF';if(audioOn){initAudio();soundEffect('pickup')}else{stopAmbience();if(masterGain&&audioCtx)masterGain.gain.setTargetAtTime(.0001,audioCtx.currentTime,.04)}};
+// Restore volume after toggling sound back on.
+const originalInitAudio=initAudio;
+$('howBtn').onclick=()=>showMessage('FIND THE FILE. RESTORE POWER. GET THE KEY. ESCAPE.',3200);
+$('againBtn').onclick=()=>{$('ending').style.display='none';$('menu').style.display='flex';state='menu'};
+$('interactBtn').addEventListener('pointerdown',e=>{e.preventDefault();interact()});
+$('runBtn').addEventListener('pointerdown',e=>{e.preventDefault();run=true;if(navigator.vibrate)navigator.vibrate(25)});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>$('runBtn').addEventListener(ev,()=>run=false));
+const base=$('stickBase'),knob=$('stickKnob');let stickId=null;
+base.addEventListener('pointerdown',e=>{e.preventDefault();stickId=e.pointerId;base.setPointerCapture(stickId);setStick(e)});
+base.addEventListener('pointermove',e=>{if(e.pointerId===stickId)setStick(e)});
+function setStick(e){let r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,len=Math.hypot(dx,dy),m=Math.min(35,len);dx=len?dx/len*m:0;dy=len?dy/len*m:0;knob.style.transform=`translate(${dx}px,${dy}px)`;move={x:dx/35,y:-dy/35}}
+function endStick(){stickId=null;move={x:0,y:0};knob.style.transform='translate(0,0)'}
+['pointerup','pointercancel','lostpointercapture'].forEach(ev=>base.addEventListener(ev,endStick));
+let lookId=null,lastX=0;
+canvas.addEventListener('pointerdown',e=>{if(state!=='play')return;if(e.clientX>W*.38){lookId=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(lookId)}});
+canvas.addEventListener('pointermove',e=>{if(e.pointerId===lookId){player.a+=(e.clientX-lastX)*.004;lastX=e.clientX}});
+['pointerup','pointercancel','lostpointercapture'].forEach(ev=>canvas.addEventListener(ev,()=>lookId=null));
+addEventListener('keydown',e=>{if(e.code==='KeyW'||e.code==='ArrowUp')move.y=1;if(e.code==='KeyS'||e.code==='ArrowDown')move.y=-1;if(e.code==='KeyA'||e.code==='ArrowLeft')move.x=-1;if(e.code==='KeyD'||e.code==='ArrowRight')move.x=1;if(e.code==='ShiftLeft')run=true;if(e.code==='KeyE'||e.code==='Space')interact()});
+addEventListener('keyup',e=>{if(['KeyW','ArrowUp','KeyS','ArrowDown'].includes(e.code))move.y=0;if(['KeyA','ArrowLeft','KeyD','ArrowRight'].includes(e.code))move.x=0;if(e.code==='ShiftLeft')run=false});
+render();
+})();
+</script>
+</body></html>
